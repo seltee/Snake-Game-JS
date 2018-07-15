@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Snake game by Dmitry Shashkov</title>
+    <link href="https://fonts.googleapis.com/css?family=Coda+Caption:800" rel="stylesheet">
+</head>
+<body>
+    <div id="game">
+        <title>Snake Game</title>
+        <div id="screen"></div>
+        <div id="score"></div>
+        <div id="copyright">Created By Dmitry Shashkov</div>
+        <div id="game-over">
+            <span>Game Over</span>
+            <span>Press SPACE to restart</span>
+        </div>
+    </div>
+</body>
+
+<style>
+    #game{
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        background-color: #9ecc97;
+        color: #333;
+        font-family: 'Coda Caption', sans-serif;
+    }
+
+    #screen{
+        position: absolute;
+        top: 32px;
+        border: 1px solid;
+    }
+
+    title{
+        font-size: 24px;
+        line-height: 32px;
+        text-align: center;
+        display: block;
+    }
+
+    #score{
+        font-size: 24px;
+        line-height: 32px;
+        display: block;
+        position: absolute;
+        bottom: 0;
+        left: 8px;
+    }
+
+    #copyright{
+        font-size: 12px;
+        display: block;
+        position: absolute;
+        bottom: -24px;
+        left: 8px;
+    }
+
+    #game-over{
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 260px;
+        margin-left: -140px;
+        margin-top: -60px;
+        padding: 10px;
+        text-align: center;
+        background-color: #9ecc97;
+        z-index: 1;
+        display: none;
+    }
+
+    #game-over > span:first-of-type{
+        font-size: 24px;
+        display: block;
+    }
+
+    #game-over > span:last-of-type{
+        font-size: 16px;
+        display: block;
+    }
+
+    #game .snake-part{
+        position: absolute;
+        background-color: #333;
+    }
+
+    #game .apple{
+        position: absolute;
+        background-color: #333;
+        border-radius: 100px;
+    }
+</style>
+
+<script>
+  'use strict';
+
+  //settings
+  const fieldXSize = 50;
+  const fieldYSize = 50;
+  const dotSize = 8;
+  const initialSpeed = 150;
+
+  //variables
+  const gameElement = document.getElementById("game");
+  const fieldElement = document.getElementById("screen");
+  const scoreElement = document.getElementById("score");
+  const gameOverElement = document.getElementById("game-over");
+
+  var score = 0;
+  var interval = null;
+  var snake = null;
+  var apple = null;
+
+  //setting up stuff
+  gameElement.style.width = fieldXSize * dotSize + 2 + 'px';
+  gameElement.style.height = fieldYSize * dotSize + 2 + 64 + 'px';
+  gameElement.style.marginLeft = -(fieldXSize * dotSize + 2) / 2 + 'px';
+  gameElement.style.marginTop = -(fieldYSize * dotSize + 2 + 64) / 2 + 'px';
+
+  fieldElement.style.width = fieldXSize * dotSize + 'px';
+  fieldElement.style.height = fieldYSize * dotSize +  'px';
+
+  //Snake Part Object
+  function SnakePart(x, y){
+    var div = document.createElement('div');
+    div.style.width = dotSize+'px';
+    div.style.height = dotSize+'px';
+    div.style.marginLeft = x*dotSize+'px';
+    div.style.marginTop = y*dotSize+'px';
+    div.style.height = dotSize+'px';
+    div.classList.add('snake-part');
+    fieldElement.appendChild(div);
+
+    this.test = function(testX, testY){
+      return x == testX && y == testY;
+    };
+
+    this.destroy = function(){
+      div.parentElement.removeChild(div);
+    };
+  }
+
+  //Snake Object
+  function Snake(){
+    var headX = 10;
+    var headY = Math.floor((Math.random()*fieldYSize)/2 + fieldYSize/4);
+    var directionX = 1;
+    var directionY = 0;
+    var directionChanged = false;
+    var length = 3;
+    var parts = [];
+
+
+    this.move = function(){
+      headX += directionX;
+      headY += directionY;
+      directionChanged = false;
+
+      if (headX < 0
+        || headY < 0
+        || headX >= fieldXSize
+        || headY >= fieldYSize
+        || this.isOnSnake(headX, headY)){
+        gameOver();
+        return;
+      }
+
+      if (apple && apple.test(headX, headY)){
+        apple.destroy();
+        apple = new Apple();
+        score+=1;
+        length++;
+        setSpeed(initialSpeed - (score*4));
+        updateScore();
+      }
+
+      parts.push(new SnakePart(headX, headY));
+      if (parts.length > length){
+        parts.shift().destroy();
+      }
+    };
+
+    this.isOnSnake = function(pointX, pointY){
+      var length = parts.length;
+      for (var i = 0; i < length; i++){
+        if (parts[i].test(pointX, pointY)){
+          return true;
+        }
+      }
+      return false;
+    };
+
+    this.setDirection = function(dirX, dirY){
+      if (!directionChanged && dirX * -1 != directionX && dirY * -1 != directionY) {
+        directionX = dirX;
+        directionY = dirY;
+        directionChanged = true;
+      }
+    };
+
+    this.destroy = function(){
+      parts.forEach(function(element){
+        element.destroy();
+      });
+    }
+  }
+
+  //Apple Object
+  function Apple(){
+    while(1){
+      var x = Math.floor(Math.random()*(fieldXSize-2) + 1);
+      var y = Math.floor(Math.random()*(fieldYSize-2) + 1);
+      if (!snake.isOnSnake(x, y)){
+        break;
+      }
+    }
+
+    var div = document.createElement('div');
+    div.style.width = dotSize+'px';
+    div.style.height = dotSize+'px';
+    div.style.marginLeft = x*dotSize+1+'px';
+    div.style.marginTop = y*dotSize+1+'px';
+    div.style.height = dotSize+'px';
+    div.classList.add('apple');
+
+    fieldElement.appendChild(div);
+
+    this.test = function(testX, testY){
+      return x == testX && y == testY;
+    };
+
+    this.destroy = function(){
+      div.parentElement.removeChild(div);
+    };
+  }
+
+  function setSpeed(speed){
+    if (interval){
+      clearInterval(interval);
+    }
+    interval = setInterval(process, speed < 60 ? 60 : speed);
+  }
+
+  function newGame(){
+    if (snake){
+      snake.destroy();
+    }
+    if (apple){
+      apple.destroy();
+    }
+
+    snake = new Snake();
+    apple = new Apple();
+    setSpeed(initialSpeed);
+    updateScore();
+    gameOverElement.style.display = 'none';
+  }
+
+  function process(){
+    snake.move();
+  }
+
+  function updateScore(){
+    scoreElement.innerHTML = 'Score: ' + score;
+  }
+
+  function gameOver(){
+    if (interval){
+      clearInterval(interval);
+      interval = null;
+      gameOverElement.style.display = 'block';
+    }
+  }
+
+  document.onkeydown = function(evt) {
+    if (evt.code == 'ArrowUp'){
+      snake.setDirection(0, -1);
+    }
+    if (evt.code == 'ArrowDown'){
+      snake.setDirection(0, 1);
+    }
+    if (evt.code == 'ArrowLeft'){
+      snake.setDirection(-1, 0);
+    }
+    if (evt.code == 'ArrowRight'){
+      snake.setDirection(1, 0);
+    }
+    if (evt.code == 'Space' && !interval){
+      newGame();
+    }
+  };
+  newGame();
+</script>
+</html>
